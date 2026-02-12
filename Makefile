@@ -4,8 +4,8 @@ install:
 
 .PHONY: test
 test:
-	uv run pytest tests.py
+	uv run pytest tests
 
 .PHONY: lint
 lint:
-	uv run ruff check migrate.py --fix
+	uv run ruff check migrate.py tests --fix

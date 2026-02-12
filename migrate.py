@@ -224,6 +224,17 @@ class ComponentRegistry:
             js_path=js_path if has_js else None,
         )
 
+    @staticmethod
+    def _normalize(name: str) -> str:
+        """Normalize a component name for fuzzy matching.
+
+        Strips hyphens/underscores and lowercases so that PascalCase path
+        segments match their kebab-case or snake_case folder equivalents.
+        e.g. "Foo.LoremIpsum.Bar" and "foo.lorem-ipsum.Bar" both become
+        "foo.loremipsum.bar".
+        """
+        return name.replace("-", "").replace("_", "").lower()
+
     def resolve(self, tag_name: str) -> ComponentInfo | None:
         """Resolve a JinjaX tag name to a ComponentInfo."""
         # Direct lookup
@@ -233,6 +244,12 @@ class ComponentRegistry:
         tag_lower = tag_name.lower()
         for name, info in self.components.items():
             if name.lower() == tag_lower:
+                return info
+        # Normalized fallback: strips hyphens/underscores so PascalCase path
+        # segments match kebab-case folder names
+        tag_norm = self._normalize(tag_name)
+        for name, info in self.components.items():
+            if self._normalize(name) == tag_norm:
                 return info
         return None
 
