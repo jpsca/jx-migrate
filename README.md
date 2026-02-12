@@ -12,7 +12,7 @@ This script automates migrating [JinjaX](https://github.com/jpsca/jinjax/) templ
 Either:
 
 ```sh
-uv run https://raw.githubusercontent.com/jpsca/jx-migrate/main/migrate.py [--dry-run] [--no-backup]
+uvx https://raw.githubusercontent.com/jpsca/jx-migrate/main/migrate.py [--dry-run] [--no-backup]
 ```
 
 or, download `migrate.py` and invoke it like this:
