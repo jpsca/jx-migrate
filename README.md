@@ -11,11 +11,15 @@ This script automates migrating [JinjaX](https://github.com/jpsca/jinjax/) templ
 
 Either:
 
-A) `uv run https://raw.githubusercontent.com/jpsca/jx-migrate/main/migrate.py [--dry-run] [--no-backup]`
+```sh
+uv run https://raw.githubusercontent.com/jpsca/jx-migrate/main/migrate.py [--dry-run] [--no-backup]
+```
 
 or, download `migrate.py` and invoke it like this:
 
-B) `python migrate.py [--dry-run] [--no-backup]`
+```sh
+python migrate.py [--dry-run] [--no-backup]
+```
 
 ### User Interaction Flow
 
