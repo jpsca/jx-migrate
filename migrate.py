@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# ///
 """JinjaX to Jx migration script.
 
 Migrates .jinja component templates from JinjaX syntax to Jx syntax:
@@ -8,7 +11,7 @@ Migrates .jinja component templates from JinjaX syntax to Jx syntax:
 - Updates asset declarations and rendering calls
 
 Usage:
-    python migrate.py [--dry-run] [--no-backup]
+    uv run migrate.py [--dry-run] [--no-backup]
 """
 
 from __future__ import annotations

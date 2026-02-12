@@ -4,20 +4,27 @@ This script automates migrating [JinjaX](https://github.com/jpsca/jinjax/) templ
 
 **Scope**: Templates and assets only. Python integration code (Catalog setup, middleware removal) is left to the user.
 
-## Templates & Assets
+
+### Templates and assets
+
+### Instructions
+
+Either:
+
+A) `uv run https://raw.githubusercontent.com/jpsca/jx-migrate/main/migrate.py [--dry-run] [--no-backup]`
+
+or, download `migrate.py` and invoke it like this:
+
+B) `python migrate.py [--dry-run] [--no-backup]`
 
 ### User Interaction Flow
-
-```
-$ python migrate.py [--dry-run] [--no-backup]
 
 1. Prompt for catalog folder(s) with optional prefix per folder (loop until empty)
 2. Prompt for static folder path
 3. Prompt for asset URL prefix (e.g. /static/)
 4. Scan & report component count
 5. Show preview of all changes
-6. If not --dry-run, confirm and apply
-```
+6. If not `--dry-run`, confirm and apply
 
 ### Phase 1: Build Component Registry (read-only scan)
 
@@ -64,15 +71,28 @@ In component templates that define named slots:
 
 In templates that fill named slots via `_slot` conditionals:
 
+**BEFORE (JinjaX)**
+
 ```jinja
-{# BEFORE (JinjaX) #}                    {# AFTER (Jx) #}
-{% if _slot == "header" %}                {% fill header %}
-  <h1>Title</h1>                            <h1>Title</h1>
-{% elif _slot == "footer" %}              {% endfill %}
-  <p>Footer</p>                           {% fill footer %}
-{% else %}                                  <p>Footer</p>
-  Default body                            {% endfill %}
-{% endif %}                               Default body
+{% if _slot == "header" %}
+  <h1>Title</h1>
+{% elif _slot == "footer" %}
+  <p>Footer</p>
+{% else %}
+  Default body
+{% endif %}
+```
+
+**AFTER (Jx)**
+
+```jinja
+{% fill header %}
+  <h1>Title</h1>
+{% endfill %}
+{% fill footer %}
+  <p>Footer</p>
+{% endfill %}
+Default body
 ```
 
 #### 3c. Update asset rendering calls
@@ -85,7 +105,7 @@ In templates that fill named slots via `_slot` conditionals:
 
 JinjaX auto-discovers `Card.css` alongside `Card.jinja`. Jx doesn't. If the file exists but no `{#css ...#}` declaration references it, add one with the new static URL:
 
-```
+```jinja
 {#css /static/components/card.css #}
 ```
 
@@ -98,7 +118,7 @@ For each path in `{#css ...#}` and `{#js ...#}`:
 - Paths starting with `/`: leave unchanged
 - Relative paths: prepend the user-configured URL prefix
 
-```
+```jinja
 {#css card.css #}  ->  {#css /static/components/card.css #}
 ```
 
@@ -171,8 +191,8 @@ catalog.add_folder("components/")
 
 # After (Jx)
 catalog = jx.Catalog(
-    "components/",                     # optional folder shortcut (new)
-    site_name="My Site",               # globals are now **kwargs, not a dict
+    "components/",        # optional folder shortcut (new)
+    site_name="My Site",  # globals are now **kwargs, not a dict
 )
 ```
 
