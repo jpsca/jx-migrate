@@ -62,7 +62,7 @@ Apply these transformations in order per file:
 
 In component templates that define named slots:
 
-```
+```jinja
 {{ content("header") }}     ->  {% slot header %}{% endslot %}
 {{ content() }}             ->  {{ content }}
 ```
@@ -71,9 +71,9 @@ In component templates that define named slots:
 
 In templates that fill named slots via `_slot` conditionals:
 
-**BEFORE (JinjaX)**
 
 ```jinja
+{# BEFORE (JinjaX) #}
 {% if _slot == "header" %}
   <h1>Title</h1>
 {% elif _slot == "footer" %}
@@ -81,11 +81,8 @@ In templates that fill named slots via `_slot` conditionals:
 {% else %}
   Default body
 {% endif %}
-```
 
-**AFTER (Jx)**
-
-```jinja
+{# AFTER (Jx) #}
 {% fill header %}
   <h1>Title</h1>
 {% endfill %}
