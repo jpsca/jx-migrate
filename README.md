@@ -4,6 +4,8 @@ This script automates migrating [JinjaX](https://github.com/jpsca/jinjax/) templ
 
 **Scope**: Templates and assets only. Python integration code (Catalog setup, middleware removal) is left to the user.
 
+The migration also **renames every `.jinja` template to `.jx`** in place, and rewrites all generated `{#import "..." #}` statements to reference the new extension.
+
 
 ### Templates and assets
 
@@ -37,9 +39,11 @@ Recursively scan each catalog folder for `*.jinja` files. For each, compute:
 | Field                       | Example
 | --------------------------- |--------
 | JinjaX name                 | `Card`, `common.Form`, `ui:Button`
-| File path                   | `/abs/path/to/card.jinja`
-| Jx import path              | `"card.jinja"`, `"common/form.jinja"`, `"@ui/button.jinja"`
+| File path (on disk now)     | `/abs/path/to/card.jinja`
+| Jx import path (post-rename) | `"card.jx"`, `"common/form.jx"`, `"@ui/button.jx"`
 | Has co-located `.css`/`.js` | `True`/`False`
+
+Note that the file path is the actual `.jinja` location during the scan, while the Jx import path uses `.jx` because every template will be renamed before the migration finishes.
 
 Name resolution rules (from JinjaX's `catalog.py`):
 - Dots map to subfolders: `common.Form` -> `common/Form.jinja` (also check `common/form.jinja` kebab variant)
@@ -60,7 +64,7 @@ Do NOT delete originals (user can do so manually).
 
 ### Phase 3: Transform Each `.jinja` File
 
-Apply these transformations in order per file:
+Apply these transformations in order per file. After all in-file transforms run, the file is written out at the new `.jx` path and the original `.jinja` file is removed (see Phase 3g).
 
 #### 3a. Migrate slot definitions
 
@@ -139,6 +143,19 @@ This must run last because it renames tags, which would break earlier pattern ma
 
 Alias collision handling: if two components resolve to the same alias (e.g. `common.Card` and `special.Card` both -> `Card`), use the longer qualified name (`CommonCard`, `SpecialCard`) and warn.
 
+Generated imports use the **`.jx`** extension because Phase 3g will rename the target files:
+
+```jinja
+{#import "card.jx" as Card #}
+{#import "common/form.jx" as Form #}
+{#import "@ui/button.jx" as Button #}
+{#import "tab/index.jx" as Tab #}
+```
+
+#### 3g. Rename `.jinja` -> `.jx`
+
+After every in-file transform has been applied, the new content is written to `<name>.jx` next to the original and then the `<name>.jinja` file is removed. This happens for **every** scanned template, even if its content was otherwise unchanged. Co-located `.css` / `.js` files are not renamed.
+
 ### Edge Cases
 
 - **`{% raw %}` blocks**: Replace with UUID placeholders before scanning, restore after (same approach both libraries use)
@@ -147,11 +164,11 @@ Alias collision handling: if two components resolve to the same alias (e.g. `com
 - **Mixed `_slot`/non-`_slot` conditionals**: Warn, don't transform
 - **Shared assets**: Copy each file only once even if referenced by multiple components
 - **Kebab-case filenames**: `my-button.jinja` -> import alias `MyButton`
-- **Index files**: `tab/index.jinja` referenced as `<Tab>` -> `{#import "tab/index.jinja" as Tab #}`
+- **Index files**: `tab/index.jinja` referenced as `<Tab>` -> `{#import "tab/index.jx" as Tab #}` (and the file itself becomes `tab/index.jx`)
 
 ### Backup Strategy
 
-Before modifying any file, create `backups/YYYYMMDD-HHMMSS/` mirroring the directory structure of all affected files. Skip with `--no-backup`.
+Before modifying any file, create `backups/YYYYMMDD-HHMMSS/` mirroring the directory structure of all affected files. Because every scanned `.jinja` file gets removed during the rename step, **all** scanned templates are backed up — not only those whose content changed. Skip with `--no-backup`.
 
 
 ## Python Code Changes (Manual)
@@ -210,18 +227,18 @@ html = catalog.render("ComponentName", arg1="value", arg2=42)
 # Component name used dot notation: "common.Form"
 
 # After (Jx)
-html = catalog.render("component-name.jinja", arg1="value", arg2=42)
-# Uses file path with extension: "common/form.jinja"
+html = catalog.render("component-name.jx", arg1="value", arg2=42)
+# Uses file path with extension: "common/form.jx"
 ```
 
 Key differences:
 - JinjaX uses PascalCase dot-notation component names: `"Card"`, `"common.Form"`
-- Jx uses file paths with extension: `"card.jinja"`, `"common/form.jinja"`
+- Jx uses file paths with extension: `"card.jx"`, `"common/form.jx"` (the migration script renames every `.jinja` file to `.jx`)
 - Jx also accepts a `globals` dict parameter for per-render globals:
 
 ```python
 html = catalog.render(
-    "page.jinja",
+    "page.jx",
     globals={"request": request, "csrf_token": token},
     title="Dashboard",
 )
@@ -249,7 +266,7 @@ html = catalog.render("Card", _content="<p>Hi</p>", _source="...", _globals={...
 # Use catalog.render_string() for inline source:
 html = catalog.render_string("{#def name #}<p>{{ name }}</p>", name="Hi")
 # Pass globals via the globals parameter:
-html = catalog.render("card.jinja", globals={"request": req}, title="Hi")
+html = catalog.render("card.jx", globals={"request": req}, title="Hi")
 ```
 
 ### Framework-Specific Examples
@@ -277,7 +294,7 @@ catalog = jx.Catalog("components", jinja_env=app.jinja_env)
 
 @app.route("/")
 def index():
-    return catalog.render("page.jinja", title="Home")
+    return catalog.render("page.jx", title="Home")
 ```
 
 #### Django (with django-jinja or manual Jinja2 setup)
@@ -320,7 +337,7 @@ catalog = jx.Catalog("templates/components", jinja_env=templates.env)
 - [ ] `jinjax.Catalog(...)` → `jx.Catalog(...)` with updated args
 - [ ] `globals={...}` dict → `**kwargs`
 - [ ] Remove `root_url`, `file_ext`, `use_cache`, `fingerprint` params
-- [ ] `catalog.render("ComponentName", ...)` → `catalog.render("component-name.jinja", ...)`
+- [ ] `catalog.render("ComponentName", ...)` → `catalog.render("component-name.jx", ...)` (templates are renamed `.jinja` → `.jx`)
 - [ ] Remove `catalog.get_middleware(...)` call
 - [ ] Configure your static file server to serve the migrated assets
 - [ ] Remove `jinja2.ext.do` from explicit extensions (Jx adds it automatically if needed)

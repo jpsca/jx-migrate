@@ -199,12 +199,14 @@ class ComponentRegistry:
         if prefix:
             jinjax_name = f"{prefix}:{jinjax_name}"
 
-        # Build Jx import path
+        # Build Jx import path. The migration renames templates from .jinja
+        # to .jx, so imports must reference the new extension.
         rel_str = str(rel).replace("\\", "/")
+        import_str = str(rel.with_suffix(".jx")).replace("\\", "/")
         if prefix:
-            import_path = f"@{prefix}/{rel_str}"
+            import_path = f"@{prefix}/{import_str}"
         else:
-            import_path = rel_str
+            import_path = import_str
 
         # Check for co-located assets
         css_path = file_path.with_suffix(".css")
@@ -796,7 +798,7 @@ def print_report(result: MigrationResult) -> None:
     """Print the full migration report."""
     changed = [c for c in result.file_changes if c.changed]
 
-    if not changed and not result.asset_copies:
+    if not changed and not result.asset_copies and not result.file_changes:
         print("\nNo changes needed.")
         return
 
@@ -837,10 +839,12 @@ def print_report(result: MigrationResult) -> None:
             "catalog.render_assets()"
         )
 
+    total_files = len(result.file_changes)
     print(f"\n{'='*60}")
     print("SUMMARY")
     print(f"{'='*60}")
     print(f"  Templates modified:        {len(changed)}")
+    print(f"  Templates to rename .jx:   {total_files}")
     print(f"  Import statements added:   {imports_added}")
     print(f"  Slot definitions migrated: {slots_migrated}")
     print(f"  Fill blocks generated:     {fills_migrated}")
@@ -975,7 +979,9 @@ def main() -> None:
 
     changed_files = [c for c in result.file_changes if c.changed]
 
-    if not changed_files and not asset_copies:
+    # If there are no content changes, no asset copies, and no .jinja files
+    # to rename, there's nothing to do.
+    if not changed_files and not asset_copies and not result.file_changes:
         return
 
     if args.dry_run:
@@ -988,20 +994,29 @@ def main() -> None:
         print("Aborted.")
         return
 
-    # Backup
+    # Backup. Every .jinja file will be removed (renamed to .jx), so back
+    # them all up — not just the ones whose content changed.
     script_dir = Path(__file__).resolve().parent
     if not args.no_backup:
-        backup_files = [c.file_path for c in changed_files]
+        backup_files = [c.file_path for c in result.file_changes]
         asset_srcs = [src for src, _ in asset_copies]
         backup_path = create_backup(
             backup_files, asset_srcs, script_dir / "backups"
         )
         print(f"\n  Backup created: {backup_path}")
 
-    # Apply template changes
-    for changes in changed_files:
-        changes.file_path.write_text(changes.transformed, encoding="utf-8")
-    print(f"  Modified {len(changed_files)} template(s)")
+    # Apply template changes and rename .jinja -> .jx.
+    renamed_count = 0
+    for changes in result.file_changes:
+        new_path = changes.file_path.with_suffix(".jx")
+        new_path.write_text(changes.transformed, encoding="utf-8")
+        if changes.file_path != new_path and changes.file_path.exists():
+            changes.file_path.unlink()
+            renamed_count += 1
+    print(
+        f"  Modified {len(changed_files)} template(s); "
+        f"renamed {renamed_count} file(s) to .jx"
+    )
 
     # Apply asset copies
     execute_asset_copies(asset_copies, dry_run=False)
